@@ -3,15 +3,16 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils import weight_norm
 
-
+# Utility function to apply weight normalization to a 1D convolutional layer
 def WNConv1d(*args, **kwargs):
     return weight_norm(nn.Conv1d(*args, **kwargs))
 
-
+# Define a block for the WaveDiscriminator
 class WaveDiscriminatorBlock(nn.Module):
     def __init__(self):
         super().__init__()
 
+        # Define the layers of the block
         self.layers = nn.ModuleList([
             nn.Sequential(
                 nn.ReflectionPad1d(7),
@@ -48,6 +49,7 @@ class WaveDiscriminatorBlock(nn.Module):
         ])
 
     def features_lengths(self, lengths):
+        # Calculate the output lengths for each layer
         return [
             lengths,
             torch.div(lengths + 3, 4, rounding_mode="floor"),
@@ -65,7 +67,7 @@ class WaveDiscriminatorBlock(nn.Module):
             feature_map.append(x)
         return feature_map
 
-
+# Define the WaveDiscriminator class
 class WaveDiscriminator(nn.Module):
     def __init__(self, num_D, downsampling_factor):
         super().__init__()
@@ -73,6 +75,7 @@ class WaveDiscriminator(nn.Module):
         self.num_D = num_D
         self.downsampling_factor = downsampling_factor
 
+        # Create multiple discriminator blocks with different downsampling factors
         self.model = nn.ModuleDict({
             f"disc_{downsampling_factor ** i}": WaveDiscriminatorBlock()
             for i in range(num_D)
@@ -81,6 +84,7 @@ class WaveDiscriminator(nn.Module):
                                         count_include_pad=False)
 
     def features_lengths(self, lengths):
+        # Calculate the output lengths for each discriminator block
         return {
             f"disc_{self.downsampling_factor ** i}": self.model[
                 f"disc_{self.downsampling_factor ** i}"].features_lengths(
@@ -92,12 +96,10 @@ class WaveDiscriminator(nn.Module):
         for i in range(self.num_D):
             disc = self.model[f"disc_{self.downsampling_factor ** i}"]
             results[f"disc_{self.downsampling_factor ** i}"] = disc(x)
-            x = self.downsampler(x)
+            x = self.downsampler(x)  # Downsample the input for the next discriminator block
         return results
 
-
-# STFT-based Discriminator
-
+# Define a residual unit for the STFT-based discriminator
 class ResidualUnit2d(nn.Module):
     def __init__(self, in_channels, N, m, s_t, s_f):
         super().__init__()
@@ -128,9 +130,10 @@ class ResidualUnit2d(nn.Module):
         )
 
     def forward(self, x):
+        # Add the output of the layers to the skip connection
         return self.layers(F.pad(x, [self.s_t + 1, 0, self.s_f + 1, 0])) + self.skip_connection(x)
 
-
+# Define the STFT-based Discriminator class
 class STFTDiscriminator(nn.Module):
     def __init__(self, C, F_bins):
         super().__init__()
@@ -169,6 +172,7 @@ class STFTDiscriminator(nn.Module):
         ])
 
     def features_lengths(self, lengths):
+        # Calculate the output lengths for each layer
         return [
             lengths - 6,
             lengths - 6,

@@ -3,16 +3,17 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils import weight_norm
 
-
+# Define a causal 1D convolution layer with weight normalization
 class CausalConv1d(nn.Conv1d):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.causal_padding = self.dilation[0] * (self.kernel_size[0] - 1)
 
     def forward(self, x):
+        # Apply causal padding and perform the convolution
         return self._conv_forward(F.pad(x, [self.causal_padding, 0]), self.weight, self.bias)
 
-
+# Define a causal 1D transposed convolution layer with weight normalization
 class CausalConvTranspose1d(nn.ConvTranspose1d):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -29,7 +30,7 @@ class CausalConvTranspose1d(nn.ConvTranspose1d):
             x, self.weight, self.bias, self.stride, self.padding,
             output_padding, self.groups, self.dilation)[..., :-self.causal_padding]
 
-
+# Define a residual unit block
 class ResidualUnit(nn.Module):
     def __init__(self, in_channels, out_channels, dilation):
         super().__init__()
@@ -45,9 +46,10 @@ class ResidualUnit(nn.Module):
         )
 
     def forward(self, x):
+        # Apply the layers and add the input (residual connection)
         return x + self.layers(x)
 
-
+# Define an encoder block
 class EncoderBlock(nn.Module):
     def __init__(self, out_channels, stride):
         super().__init__()
@@ -69,7 +71,7 @@ class EncoderBlock(nn.Module):
     def forward(self, x):
         return self.layers(x)
 
-
+# Define a decoder block
 class DecoderBlock(nn.Module):
     def __init__(self, out_channels, stride):
         super().__init__()
@@ -93,7 +95,7 @@ class DecoderBlock(nn.Module):
     def forward(self, x):
         return self.layers(x)
 
-
+# Define the encoder class
 class Encoder(nn.Module):
     def __init__(self, C, D):
         super().__init__()
@@ -115,7 +117,7 @@ class Encoder(nn.Module):
     def forward(self, x):
         return self.layers(x)
 
-
+# Define the decoder class
 class Decoder(nn.Module):
     def __init__(self, C, D):
         super().__init__()
